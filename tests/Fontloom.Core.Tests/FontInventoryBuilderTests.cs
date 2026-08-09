@@ -77,7 +77,7 @@ public class FontInventoryBuilderTests
 
             var inventoryBuilder = new FontInventoryBuilder(systemSource, fileReader);
             var progressEvents = new List<SystemFontEnumerationProgress>();
-            var progress = new Progress<SystemFontEnumerationProgress>(report => progressEvents.Add(report));
+            var progress = new CapturingProgress(progressEvents);
 
             _ = inventoryBuilder.EnumerateFonts([loosePath], progress);
 
@@ -155,5 +155,18 @@ public class FontInventoryBuilderTests
                 path,
                 $"No fixture mapping available for '{path}'.");
         }
+    }
+
+    private sealed class CapturingProgress : IProgress<SystemFontEnumerationProgress>
+    {
+        private readonly List<SystemFontEnumerationProgress> _events;
+
+        public CapturingProgress(List<SystemFontEnumerationProgress> events)
+        {
+            _events = events;
+        }
+
+        public void Report(SystemFontEnumerationProgress value)
+            => _events.Add(value);
     }
 }
