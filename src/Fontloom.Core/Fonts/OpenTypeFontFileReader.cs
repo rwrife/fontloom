@@ -208,6 +208,7 @@ public sealed class OpenTypeFontFileReader : IFontFileReader
         typeface.CollectUnicode(codePoints);
 
         var uniqueCodePoints = new HashSet<uint>(codePoints.Where(cp => cp > 0));
+        var coverageRanges = BuildCodePointRanges(uniqueCodePoints);
 
         return new GlyphCoverageSummary(
             GlyphCount: typeface.GlyphCount,
@@ -217,7 +218,39 @@ public sealed class OpenTypeFontFileReader : IFontFileReader
             SupportsLatinExtendedA: HasRange(uniqueCodePoints, 0x0100, 0x017F),
             SupportsGreekAndCoptic: HasRange(uniqueCodePoints, 0x0370, 0x03FF),
             SupportsCyrillic: HasRange(uniqueCodePoints, 0x0400, 0x04FF),
-            SupportsCjkUnifiedIdeographs: HasRange(uniqueCodePoints, 0x4E00, 0x9FFF));
+            SupportsCjkUnifiedIdeographs: HasRange(uniqueCodePoints, 0x4E00, 0x9FFF),
+            CoveredCodePointRanges: coverageRanges);
+    }
+
+    private static IReadOnlyList<CodePointRange> BuildCodePointRanges(HashSet<uint> codePoints)
+    {
+        if (codePoints.Count == 0)
+        {
+            return [];
+        }
+
+        var sortedCodePoints = codePoints.OrderBy(codePoint => codePoint).ToArray();
+        var ranges = new List<CodePointRange>();
+
+        var rangeStart = sortedCodePoints[0];
+        var previous = sortedCodePoints[0];
+
+        for (var index = 1; index < sortedCodePoints.Length; index++)
+        {
+            var current = sortedCodePoints[index];
+            if (current == previous + 1)
+            {
+                previous = current;
+                continue;
+            }
+
+            ranges.Add(new CodePointRange(rangeStart, previous));
+            rangeStart = current;
+            previous = current;
+        }
+
+        ranges.Add(new CodePointRange(rangeStart, previous));
+        return ranges;
     }
 
     private static bool HasRange(HashSet<uint> codePoints, uint startInclusive, uint endInclusive)

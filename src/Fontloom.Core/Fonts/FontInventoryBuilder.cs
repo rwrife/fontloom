@@ -36,7 +36,7 @@ public sealed class FontInventoryBuilder
         IProgress<SystemFontEnumerationProgress>? systemProgress = null;
         if (progress is not null)
         {
-            systemProgress = new Progress<SystemFontEnumerationProgress>(reported =>
+            systemProgress = new CallbackProgress<SystemFontEnumerationProgress>(reported =>
             {
                 lastSystemProcessedFileCount = reported.ProcessedFileCount;
                 progress.Report(reported);
@@ -185,5 +185,19 @@ public sealed class FontInventoryBuilder
         {
             return path;
         }
+    }
+
+    private sealed class CallbackProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _callback;
+
+        public CallbackProgress(Action<T> callback)
+        {
+            ArgumentNullException.ThrowIfNull(callback);
+            _callback = callback;
+        }
+
+        public void Report(T value)
+            => _callback(value);
     }
 }
