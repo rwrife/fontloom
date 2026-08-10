@@ -1,0 +1,173 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:Fontloom.Desktop.Converters"
+        x:Class="Fontloom.Desktop.MainWindow"
+        Title="fontloom"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="640">
+  <Window.Resources>
+    <converters:NumericFontWeightConverter x:Key="NumericFontWeightConverter" />
+  </Window.Resources>
+
+  <Grid RowDefinitions="Auto,*"
+        ColumnDefinitions="*">
+    <Border Grid.Row="0"
+            Padding="12"
+            BorderThickness="0,0,0,1"
+            BorderBrush="#2A2A2A">
+      <Grid ColumnDefinitions="2*,Auto,Auto,Auto,Auto">
+        <StackPanel Grid.Column="0"
+                    Spacing="4">
+          <TextBlock Text="Sample text"
+                     FontWeight="SemiBold" />
+          <TextBox Text="{Binding SampleText}"
+                   Watermark="Type text to preview every font" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Width="180"
+                    Spacing="4">
+          <TextBlock Text="Size" FontWeight="SemiBold" />
+          <Slider Minimum="10"
+                  Maximum="96"
+                  TickFrequency="1"
+                  Value="{Binding PreviewSize}" />
+          <TextBlock Text="{Binding PreviewSizeLabel}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2"
+                    Width="180"
+                    Spacing="4">
+          <TextBlock Text="Weight" FontWeight="SemiBold" />
+          <Slider Minimum="100"
+                  Maximum="900"
+                  TickFrequency="50"
+                  Value="{Binding PreviewWeight}" />
+          <TextBlock Text="{Binding PreviewWeightLabel}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="3"
+                    VerticalAlignment="Bottom"
+                    Spacing="4">
+          <TextBlock Text="{Binding VisibleFontCountLabel}" />
+          <TextBlock Text="{Binding TotalFontCountLabel}" />
+        </StackPanel>
+
+        <Button Grid.Column="4"
+                VerticalAlignment="Bottom"
+                Content="Reload Fonts"
+                Click="ReloadFonts_OnClick" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          ColumnDefinitions="280,*,320">
+      <Border Grid.Column="0"
+              Padding="12"
+              BorderThickness="0,0,1,0"
+              BorderBrush="#2A2A2A">
+        <ScrollViewer>
+          <StackPanel Spacing="10">
+            <TextBlock Text="Filters" FontSize="16" FontWeight="SemiBold" />
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Family search" FontWeight="SemiBold" />
+              <TextBox Text="{Binding FamilySearch}"
+                       Watermark="e.g. inter, noto, serif" />
+            </StackPanel>
+
+            <Separator />
+
+            <TextBlock Text="Classification" FontWeight="SemiBold" />
+            <CheckBox Content="Serif" IsChecked="{Binding ShowSerif}" />
+            <CheckBox Content="Sans Serif" IsChecked="{Binding ShowSansSerif}" />
+            <CheckBox Content="Monospace" IsChecked="{Binding ShowMonospace}" />
+            <CheckBox Content="Display" IsChecked="{Binding ShowDisplay}" />
+            <CheckBox Content="Unknown" IsChecked="{Binding ShowUnknown}" />
+
+            <Separator />
+
+            <TextBlock Text="Style" FontWeight="SemiBold" />
+            <CheckBox Content="Italic only" IsChecked="{Binding ItalicOnly}" />
+            <CheckBox Content="Monospace only" IsChecked="{Binding MonospaceOnly}" />
+            <CheckBox Content="Only fonts that support sample text"
+                      IsChecked="{Binding RequireGlyphCoverage}" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <Border Grid.Column="1"
+              Padding="10"
+              BorderThickness="0,0,1,0"
+              BorderBrush="#2A2A2A">
+        <Grid RowDefinitions="*,Auto">
+          <ListBox Grid.Row="0"
+                   ItemsSource="{Binding FilteredFonts}"
+                   SelectedItem="{Binding SelectedFont}">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Margin="0,0,0,8"
+                        Padding="10"
+                        BorderThickness="1"
+                        BorderBrush="#333"
+                        CornerRadius="6">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Family}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding StyleSummary}" Foreground="#AFAFAF" />
+                    <TextBlock Text="{Binding DataContext.SampleText, RelativeSource={RelativeSource AncestorType=Window}}"
+                               FontFamily="{Binding Family}"
+                               FontSize="{Binding DataContext.PreviewSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                               FontWeight="{Binding DataContext.PreviewWeight, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NumericFontWeightConverter}}"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <TextBlock Grid.Row="1"
+                     Margin="2,8,2,0"
+                     Text="{Binding StatusMessage}"
+                     Foreground="#AFAFAF" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2"
+              Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Font details" FontSize="16" FontWeight="SemiBold" />
+
+          <TextBlock Text="Family" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedFamily}" TextWrapping="Wrap" />
+
+          <TextBlock Text="Subfamily" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedSubfamily}" TextWrapping="Wrap" />
+
+          <TextBlock Text="Format" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedFormat}" />
+
+          <TextBlock Text="Weight / Width" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedWeightAndWidth}" />
+
+          <TextBlock Text="Style" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedStyle}" />
+
+          <TextBlock Text="Coverage" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedCoverageSummary}" TextWrapping="Wrap" />
+
+          <TextBlock Text="Source" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedSourcePath}"
+                     TextWrapping="Wrap"
+                     MaxHeight="120" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
