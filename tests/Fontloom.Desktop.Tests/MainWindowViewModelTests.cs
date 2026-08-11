@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fontloom.Core.Fonts;
+using Fontloom.Core.Organization;
 using Fontloom.Desktop.Services;
 using Fontloom.Desktop.ViewModels;
 
@@ -69,6 +70,46 @@ public class MainWindowViewModelTests
 
         viewModel.PreviewSize.Should().Be(96);
         viewModel.PreviewWeight.Should().Be(100);
+    }
+
+    [Fact]
+    public void FavoriteToggle_UpdatesStoreAndFavoriteFilter()
+    {
+        var service = new StubCatalogService(CreateIndex(
+            CreateFont("Inter Sans", "Regular", 400, false, "/fonts/inter-regular.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E))),
+            CreateFont("JetBrains Mono", "Regular", 400, false, "/fonts/jetbrains-mono.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E)))));
+
+        var store = new InMemoryFontOrganizationStore();
+        var viewModel = new MainWindowViewModel(service, store);
+
+        viewModel.SelectedFont = viewModel.FilteredFonts.Single(font => font.Family == "Inter Sans");
+        viewModel.ToggleSelectedFavorite();
+
+        viewModel.ShowFavoritesOnly = true;
+
+        viewModel.FilteredFonts.Should().ContainSingle();
+        viewModel.FilteredFonts.Single().Family.Should().Be("Inter Sans");
+    }
+
+    [Fact]
+    public void SaveTags_UpdatesTagFacetFilter()
+    {
+        var service = new StubCatalogService(CreateIndex(
+            CreateFont("Inter Sans", "Regular", 400, false, "/fonts/inter-regular.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E))),
+            CreateFont("JetBrains Mono", "Regular", 400, false, "/fonts/jetbrains-mono.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E)))));
+
+        var store = new InMemoryFontOrganizationStore();
+        var viewModel = new MainWindowViewModel(service, store);
+
+        viewModel.SelectedFont = viewModel.FilteredFonts.Single(font => font.Family == "JetBrains Mono");
+        viewModel.SelectedFontTagsEditor = "coding, mono";
+        viewModel.SaveSelectedFontTags();
+
+        viewModel.TagFacetOptions.Should().Contain("coding");
+        viewModel.ActiveTagFacet = "coding";
+
+        viewModel.FilteredFonts.Should().ContainSingle();
+        viewModel.FilteredFonts.Single().Family.Should().Be("JetBrains Mono");
     }
 
     private static FontIndex CreateIndex(params FontInfo[] fonts)
