@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Fontloom.Core/Fontloom.Core.csproj" />
+    <Project Path="src/Fontloom.Desktop/Fontloom.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Fontloom.Core.Tests/Fontloom.Core.Tests.csproj" />
+    <Project Path="tests/Fontloom.Desktop.Tests/Fontloom.Desktop.Tests.csproj" />
   </Folder>
 </Solution>
