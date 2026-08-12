@@ -63,7 +63,7 @@
     </Border>
 
     <Grid Grid.Row="1"
-          ColumnDefinitions="280,*,320">
+          ColumnDefinitions="300,*,340">
       <Border Grid.Column="0"
               Padding="12"
               BorderThickness="0,0,1,0"
@@ -94,6 +94,29 @@
             <CheckBox Content="Monospace only" IsChecked="{Binding MonospaceOnly}" />
             <CheckBox Content="Only fonts that support sample text"
                       IsChecked="{Binding RequireGlyphCoverage}" />
+            <CheckBox Content="Favorites only"
+                      IsChecked="{Binding ShowFavoritesOnly}" />
+
+            <Separator />
+
+            <TextBlock Text="Tag facet" FontWeight="SemiBold" />
+            <ComboBox ItemsSource="{Binding TagFacetOptions}"
+                      SelectedItem="{Binding ActiveTagFacet}" />
+
+            <Separator />
+
+            <TextBlock Text="Loose font folders" FontWeight="SemiBold" />
+            <TextBox Text="{Binding LooseFontFolderInput}"
+                     Watermark="/path/to/extra/fonts" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Add folder"
+                      Click="AddLooseFontFolder_OnClick" />
+              <Button Content="Remove selected"
+                      Click="RemoveLooseFontFolder_OnClick" />
+            </StackPanel>
+            <ListBox Height="110"
+                     ItemsSource="{Binding LooseFontFolders}"
+                     SelectedItem="{Binding SelectedLooseFontFolder}" />
           </StackPanel>
         </ScrollViewer>
       </Border>
@@ -119,8 +142,20 @@
                         BorderBrush="#333"
                         CornerRadius="6">
                   <StackPanel Spacing="4">
-                    <TextBlock Text="{Binding Family}" FontWeight="SemiBold" />
+                    <DockPanel LastChildFill="False">
+                      <TextBlock DockPanel.Dock="Left"
+                                 Text="{Binding Family}"
+                                 FontWeight="SemiBold" />
+                      <TextBlock DockPanel.Dock="Right"
+                                 Text="{Binding FavoriteMarker}"
+                                 Foreground="#E0C15A"
+                                 FontSize="14" />
+                    </DockPanel>
                     <TextBlock Text="{Binding StyleSummary}" Foreground="#AFAFAF" />
+                    <TextBlock Text="{Binding TagSummary}"
+                               FontSize="11"
+                               Foreground="#8A8A8A"
+                               TextWrapping="Wrap" />
                     <TextBlock Text="{Binding DataContext.SampleText, RelativeSource={RelativeSource AncestorType=Window}}"
                                FontFamily="{Binding Family}"
                                FontSize="{Binding DataContext.PreviewSize, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -141,32 +176,64 @@
 
       <Border Grid.Column="2"
               Padding="12">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Font details" FontSize="16" FontWeight="SemiBold" />
+        <ScrollViewer>
+          <StackPanel Spacing="8">
+            <TextBlock Text="Font details" FontSize="16" FontWeight="SemiBold" />
 
-          <TextBlock Text="Family" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedFamily}" TextWrapping="Wrap" />
+            <Button Content="{Binding FavoriteButtonLabel}"
+                    HorizontalAlignment="Left"
+                    Click="ToggleFavorite_OnClick" />
 
-          <TextBlock Text="Subfamily" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedSubfamily}" TextWrapping="Wrap" />
+            <TextBlock Text="Family" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedFamily}" TextWrapping="Wrap" />
 
-          <TextBlock Text="Format" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedFormat}" />
+            <TextBlock Text="Subfamily" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedSubfamily}" TextWrapping="Wrap" />
 
-          <TextBlock Text="Weight / Width" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedWeightAndWidth}" />
+            <TextBlock Text="Format" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedFormat}" />
 
-          <TextBlock Text="Style" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedStyle}" />
+            <TextBlock Text="Weight / Width" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedWeightAndWidth}" />
 
-          <TextBlock Text="Coverage" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedCoverageSummary}" TextWrapping="Wrap" />
+            <TextBlock Text="Style" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedStyle}" />
 
-          <TextBlock Text="Source" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedSourcePath}"
-                     TextWrapping="Wrap"
-                     MaxHeight="120" />
-        </StackPanel>
+            <TextBlock Text="Coverage" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedCoverageSummary}" TextWrapping="Wrap" />
+
+            <TextBlock Text="Source" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectedSourcePath}"
+                       TextWrapping="Wrap"
+                       MaxHeight="120" />
+
+            <Separator />
+
+            <TextBlock Text="Tags" FontWeight="SemiBold" />
+            <TextBox Text="{Binding SelectedFontTagsEditor}"
+                     Watermark="tag1, tag2, tag3" />
+            <Button Content="Save tags"
+                    HorizontalAlignment="Left"
+                    Click="SaveTags_OnClick" />
+
+            <Separator />
+
+            <TextBlock Text="Collections" FontWeight="SemiBold" />
+            <TextBox Text="{Binding NewCollectionName}"
+                     Watermark="New collection name" />
+            <Button Content="Create collection"
+                    HorizontalAlignment="Left"
+                    Click="CreateCollection_OnClick" />
+            <ComboBox ItemsSource="{Binding CollectionNames}"
+                      SelectedItem="{Binding SelectedCollectionName}" />
+            <Button Content="{Binding CollectionMembershipButtonLabel}"
+                    HorizontalAlignment="Left"
+                    Click="ToggleCollectionMembership_OnClick" />
+            <TextBlock Text="{Binding SelectedFontCollectionsLabel}"
+                       Foreground="#AFAFAF"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </ScrollViewer>
       </Border>
     </Grid>
   </Grid>

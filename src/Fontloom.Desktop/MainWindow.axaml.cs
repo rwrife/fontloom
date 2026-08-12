@@ -17,4 +17,52 @@ public partial class MainWindow : Window
             viewModel.ReloadFonts();
         }
     }
+
+    private void ToggleFavorite_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ToggleSelectedFavorite();
+        }
+    }
+
+    private void SaveTags_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SaveSelectedFontTags();
+        }
+    }
+
+    private void CreateCollection_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.CreateCollection();
+        }
+    }
+
+    private void ToggleCollectionMembership_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ToggleSelectedFontCollectionMembership();
+        }
+    }
+
+    private void AddLooseFontFolder_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.AddLooseFontFolder();
+        }
+    }
+
+    private void RemoveLooseFontFolder_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.RemoveSelectedLooseFontFolder();
+        }
+    }
 }
