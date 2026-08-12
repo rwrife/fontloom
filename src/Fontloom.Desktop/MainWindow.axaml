@@ -180,9 +180,14 @@
           <StackPanel Spacing="8">
             <TextBlock Text="Font details" FontSize="16" FontWeight="SemiBold" />
 
-            <Button Content="{Binding FavoriteButtonLabel}"
-                    HorizontalAlignment="Left"
-                    Click="ToggleFavorite_OnClick" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="{Binding FavoriteButtonLabel}"
+                      HorizontalAlignment="Left"
+                      Click="ToggleFavorite_OnClick" />
+              <Button Content="{Binding ComparisonPinButtonLabel}"
+                      HorizontalAlignment="Left"
+                      Click="ToggleComparisonPin_OnClick" />
+            </StackPanel>
 
             <TextBlock Text="Family" FontWeight="SemiBold" />
             <TextBlock Text="{Binding SelectedFamily}" TextWrapping="Wrap" />
@@ -209,6 +214,34 @@
 
             <Separator />
 
+            <TextBlock Text="Comparison tray" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ComparisonTrayStatusLabel}"
+                       Foreground="#AFAFAF"
+                       TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding ComparisonTrayFonts}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,6"
+                          Padding="8"
+                          BorderBrush="#2F2F2F"
+                          BorderThickness="1"
+                          CornerRadius="6">
+                    <StackPanel Spacing="3">
+                      <TextBlock Text="{Binding Family}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding StyleSummary}" Foreground="#AFAFAF" FontSize="11" />
+                      <TextBlock Text="{Binding DataContext.SampleText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 FontFamily="{Binding Family}"
+                                 FontSize="{Binding DataContext.PreviewSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 FontWeight="{Binding DataContext.PreviewWeight, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NumericFontWeightConverter}}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Separator />
+
             <TextBlock Text="Tags" FontWeight="SemiBold" />
             <TextBox Text="{Binding SelectedFontTagsEditor}"
                      Watermark="tag1, tag2, tag3" />
@@ -232,6 +265,20 @@
             <TextBlock Text="{Binding SelectedFontCollectionsLabel}"
                        Foreground="#AFAFAF"
                        TextWrapping="Wrap" />
+
+            <Separator />
+
+            <TextBlock Text="Specimen export" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ExportDirectoryInput}"
+                     Watermark="Export folder path" />
+            <TextBox Text="{Binding ExportFileStemInput}"
+                     Watermark="File name stem (optional)" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Export selected font PNG"
+                      Click="ExportSelectedFontPng_OnClick" />
+              <Button Content="Export selected collection PDF"
+                      Click="ExportSelectedCollectionPdf_OnClick" />
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </Border>

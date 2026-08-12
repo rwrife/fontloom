@@ -65,4 +65,28 @@ public partial class MainWindow : Window
             viewModel.RemoveSelectedLooseFontFolder();
         }
     }
+
+    private void ToggleComparisonPin_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ToggleSelectedFontComparisonPin();
+        }
+    }
+
+    private void ExportSelectedFontPng_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ExportSelectedFontSpecimenPng();
+        }
+    }
+
+    private void ExportSelectedCollectionPdf_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ExportSelectedCollectionSpecimenPdf();
+        }
+    }
 }

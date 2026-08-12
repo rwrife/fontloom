@@ -1,5 +1,6 @@
 using Fontloom.Core.Fonts;
 using Fontloom.Core.Organization;
+using Fontloom.Core.Specimens;
 using Fontloom.Desktop.Services;
 
 namespace Fontloom.Desktop.ViewModels;
@@ -17,15 +18,21 @@ public sealed class MainWindowViewModel : ViewModelBase
         FontClassification.Unknown
     ];
 
+    private const int ComparisonTrayMinimum = 2;
+    private const int ComparisonTrayMaximum = 6;
+
     private readonly IFontCatalogService _fontCatalogService;
     private readonly IFontOrganizationStore _organizationStore;
+    private readonly ISpecimenExporter _specimenExporter;
 
     private readonly HashSet<string> _favoritePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _tagsByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _collections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _comparisonTrayPaths = new();
 
     private FontIndex _fontIndex = FontIndex.Create(Array.Empty<FontInfo>());
     private IReadOnlyList<FontTileViewModel> _filteredFonts = Array.Empty<FontTileViewModel>();
+    private IReadOnlyList<FontTileViewModel> _comparisonTrayFonts = Array.Empty<FontTileViewModel>();
     private FontTileViewModel? _selectedFont;
     private string _sampleText = "The quick brown fox jumps over the lazy dog 0123456789";
     private string _familySearch = string.Empty;
@@ -47,6 +54,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _activeTagFacet = AllTagsFacet;
 
     private bool _isSelectedFontFavorite;
+    private bool _isSelectedFontPinnedForComparison;
     private string _selectedFontTagsEditor = string.Empty;
 
     private string _newCollectionName = string.Empty;
@@ -59,13 +67,18 @@ public sealed class MainWindowViewModel : ViewModelBase
     private IReadOnlyList<string> _looseFontFolders = Array.Empty<string>();
     private string? _selectedLooseFontFolder;
 
+    private string _exportDirectoryInput = BuildDefaultExportDirectory();
+    private string _exportFileStemInput = "specimen";
+
     public MainWindowViewModel(
         IFontCatalogService fontCatalogService,
         IFontOrganizationStore? organizationStore = null,
+        ISpecimenExporter? specimenExporter = null,
         bool autoLoad = true)
     {
         _fontCatalogService = fontCatalogService ?? throw new ArgumentNullException(nameof(fontCatalogService));
         _organizationStore = organizationStore ?? new InMemoryFontOrganizationStore();
+        _specimenExporter = specimenExporter ?? new SkiaSpecimenExporter();
 
         ReloadOrganizationState();
 
@@ -213,6 +226,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public IReadOnlyList<FontTileViewModel> ComparisonTrayFonts
+    {
+        get => _comparisonTrayFonts;
+        private set
+        {
+            if (SetProperty(ref _comparisonTrayFonts, value))
+            {
+                OnPropertyChanged(nameof(ComparisonTrayStatusLabel));
+            }
+        }
+    }
+
     public FontTileViewModel? SelectedFont
     {
         get => _selectedFont;
@@ -238,7 +263,23 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public bool IsSelectedFontPinnedForComparison
+    {
+        get => _isSelectedFontPinnedForComparison;
+        private set
+        {
+            if (SetProperty(ref _isSelectedFontPinnedForComparison, value))
+            {
+                OnPropertyChanged(nameof(ComparisonPinButtonLabel));
+            }
+        }
+    }
+
     public string FavoriteButtonLabel => IsSelectedFontFavorite ? "★ Unfavorite" : "☆ Favorite";
+
+    public string ComparisonPinButtonLabel => IsSelectedFontPinnedForComparison
+        ? "Unpin from compare tray"
+        : "Pin to compare tray";
 
     public string SelectedFontTagsEditor
     {
@@ -321,6 +362,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _selectedLooseFontFolder, value);
     }
 
+    public string ExportDirectoryInput
+    {
+        get => _exportDirectoryInput;
+        set => SetProperty(ref _exportDirectoryInput, value);
+    }
+
+    public string ExportFileStemInput
+    {
+        get => _exportFileStemInput;
+        set => SetProperty(ref _exportFileStemInput, value);
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -334,6 +387,21 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string VisibleFontCountLabel => $"{FilteredFonts.Count} shown";
 
     public string TotalFontCountLabel => $"{_totalFontCount} indexed";
+
+    public string ComparisonTrayStatusLabel
+    {
+        get
+        {
+            var pinnedCount = ComparisonTrayFonts.Count;
+
+            return pinnedCount switch
+            {
+                0 => $"Pin {ComparisonTrayMinimum}–{ComparisonTrayMaximum} fonts to compare side by side.",
+                < ComparisonTrayMinimum => $"{pinnedCount} pinned (add {ComparisonTrayMinimum - pinnedCount} more to compare).",
+                _ => $"{pinnedCount} pinned and synchronized with sample text/size/weight."
+            };
+        }
+    }
 
     public string SelectedFamily => SelectedFont?.Family ?? "No font selected";
 
@@ -403,6 +471,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             _totalFontCount = 0;
             OnPropertyChanged(nameof(TotalFontCountLabel));
             FilteredFonts = Array.Empty<FontTileViewModel>();
+            RefreshComparisonTrayState();
             SelectedFont = null;
             StatusMessage = $"Failed to load fonts: {ex.Message}";
         }
@@ -425,6 +494,97 @@ public sealed class MainWindowViewModel : ViewModelBase
             StatusMessage = shouldFavorite
                 ? "Font added to favorites."
                 : "Font removed from favorites.";
+        }
+    }
+
+    public void ToggleSelectedFontComparisonPin()
+    {
+        if (SelectedFont is null)
+        {
+            return;
+        }
+
+        var normalizedPath = NormalizePath(SelectedFont.SourcePath);
+
+        if (ComparisonTrayContains(normalizedPath))
+        {
+            _comparisonTrayPaths.RemoveAll(path => StringComparer.OrdinalIgnoreCase.Equals(path, normalizedPath));
+            RefreshComparisonTrayState();
+            StatusMessage = "Font removed from comparison tray.";
+            return;
+        }
+
+        if (_comparisonTrayPaths.Count >= ComparisonTrayMaximum)
+        {
+            StatusMessage = $"Comparison tray is full ({ComparisonTrayMaximum} fonts max).";
+            return;
+        }
+
+        _comparisonTrayPaths.Add(normalizedPath);
+        RefreshComparisonTrayState();
+        StatusMessage = "Font pinned to comparison tray.";
+    }
+
+    public void ExportSelectedFontSpecimenPng()
+    {
+        if (SelectedFont is null)
+        {
+            StatusMessage = "Select a font before exporting a PNG specimen.";
+            return;
+        }
+
+        try
+        {
+            var outputPath = BuildExportPath($"{BuildSafeFileStem(SelectedFont.Family)}-font", "png");
+            _specimenExporter.ExportFontPng(SelectedFont.Font, outputPath, BuildSpecimenOptions());
+            StatusMessage = $"Exported PNG specimen: {outputPath}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"PNG export failed: {ex.Message}";
+        }
+    }
+
+    public void ExportSelectedCollectionSpecimenPdf()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedCollectionName))
+        {
+            StatusMessage = "Select a collection before exporting a PDF specimen.";
+            return;
+        }
+
+        if (!_collections.TryGetValue(SelectedCollectionName, out var collectionMembers) || collectionMembers.Count == 0)
+        {
+            StatusMessage = "Selected collection has no fonts to export.";
+            return;
+        }
+
+        var fontsByPath = _fontIndex.Query()
+            .GroupBy(font => NormalizePath(font.SourcePath), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        var fontsToExport = collectionMembers
+            .Select(path => fontsByPath.TryGetValue(path, out var font) ? font : null)
+            .Where(font => font is not null)
+            .Cast<FontInfo>()
+            .ToArray();
+
+        if (fontsToExport.Length == 0)
+        {
+            StatusMessage = "Collection fonts are not currently indexed, so export cannot proceed.";
+            return;
+        }
+
+        try
+        {
+            var outputPath = BuildExportPath($"{BuildSafeFileStem(SelectedCollectionName)}-collection", "pdf");
+            var options = BuildSpecimenOptions() with { CollectionLabel = SelectedCollectionName };
+            _specimenExporter.ExportCollectionPdf(fontsToExport, outputPath, options);
+            StatusMessage = $"Exported PDF specimen: {outputPath}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"PDF export failed: {ex.Message}";
         }
     }
 
@@ -574,6 +734,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             .ToArray();
 
         FilteredFonts = filteredFonts;
+        RefreshComparisonTrayState();
 
         if (filteredFonts.Length == 0)
         {
@@ -651,6 +812,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (SelectedFont is null)
         {
             IsSelectedFontFavorite = false;
+            IsSelectedFontPinnedForComparison = false;
             SelectedFontTagsEditor = string.Empty;
             IsSelectedFontInSelectedCollection = false;
             SelectedFontCollectionsLabel = "—";
@@ -660,6 +822,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         var normalizedPath = NormalizePath(SelectedFont.SourcePath);
 
         IsSelectedFontFavorite = _favoritePaths.Contains(normalizedPath);
+        IsSelectedFontPinnedForComparison = ComparisonTrayContains(normalizedPath);
 
         var tags = GetTags(normalizedPath);
         SelectedFontTagsEditor = string.Join(", ", tags.OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase));
@@ -678,6 +841,104 @@ public sealed class MainWindowViewModel : ViewModelBase
             !string.IsNullOrWhiteSpace(SelectedCollectionName) &&
             _collections.TryGetValue(SelectedCollectionName, out var selectedCollectionMembers) &&
             selectedCollectionMembers.Contains(normalizedPath);
+    }
+
+    private void RefreshComparisonTrayState()
+    {
+        if (_comparisonTrayPaths.Count == 0)
+        {
+            ComparisonTrayFonts = Array.Empty<FontTileViewModel>();
+            IsSelectedFontPinnedForComparison = false;
+            return;
+        }
+
+        var fontsByPath = _fontIndex.Query()
+            .GroupBy(font => NormalizePath(font.SourcePath), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        var nextTray = new List<FontTileViewModel>();
+        var survivingPaths = new List<string>();
+
+        foreach (var normalizedPath in _comparisonTrayPaths)
+        {
+            if (!fontsByPath.TryGetValue(normalizedPath, out var font))
+            {
+                continue;
+            }
+
+            survivingPaths.Add(normalizedPath);
+            nextTray.Add(FontTileViewModel.FromFontInfo(
+                font,
+                isFavorite: IsFavorite(font.SourcePath),
+                tags: GetTags(font.SourcePath)));
+        }
+
+        _comparisonTrayPaths.Clear();
+        _comparisonTrayPaths.AddRange(survivingPaths);
+
+        ComparisonTrayFonts = nextTray;
+
+        if (SelectedFont is not null)
+        {
+            IsSelectedFontPinnedForComparison = ComparisonTrayContains(NormalizePath(SelectedFont.SourcePath));
+        }
+    }
+
+    private bool ComparisonTrayContains(string normalizedPath)
+        => _comparisonTrayPaths.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, normalizedPath));
+
+    private SpecimenExportOptions BuildSpecimenOptions()
+        => new(
+            SampleText: string.IsNullOrWhiteSpace(SampleText) ? SpecimenExportOptions.Default.SampleText : SampleText,
+            PointSize: (float)Math.Clamp(PreviewSize, 12, 96));
+
+    private string BuildExportPath(string defaultStem, string extension)
+    {
+        var exportDirectory = ResolveExportDirectory();
+        var stem = BuildSafeFileStem(string.IsNullOrWhiteSpace(ExportFileStemInput) ? defaultStem : ExportFileStemInput);
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            stem = BuildSafeFileStem(defaultStem);
+        }
+
+        var fileName = $"{stem}.{extension.TrimStart('.')}";
+        return Path.Combine(exportDirectory, fileName);
+    }
+
+    private string ResolveExportDirectory()
+    {
+        var input = ExportDirectoryInput.Trim();
+        if (input.Length == 0)
+        {
+            input = BuildDefaultExportDirectory();
+            ExportDirectoryInput = input;
+        }
+
+        return Path.GetFullPath(input);
+    }
+
+    private static string BuildSafeFileStem(string value)
+    {
+        var candidate = string.IsNullOrWhiteSpace(value) ? "specimen" : value.Trim();
+        var invalidChars = Path.GetInvalidFileNameChars();
+
+        var sanitized = new string(candidate
+            .Select(ch => invalidChars.Contains(ch) ? '-' : ch)
+            .ToArray())
+            .Trim();
+
+        return sanitized.Length == 0 ? "specimen" : sanitized;
+    }
+
+    private static string BuildDefaultExportDirectory()
+    {
+        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        if (string.IsNullOrWhiteSpace(baseDir))
+        {
+            baseDir = Environment.CurrentDirectory;
+        }
+
+        return Path.Combine(baseDir, "fontloom-specimens");
     }
 
     private bool IsFavorite(string sourcePath)
