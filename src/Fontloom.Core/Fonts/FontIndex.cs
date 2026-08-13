@@ -18,8 +18,8 @@ public sealed class FontIndex
         var indexedFonts = fonts
             .Select(font => new IndexedFont(
                 Font: font,
-                Classification: Classify(font),
-                IsMonospace: IsMonospace(font)))
+                Classification: FontClassificationRules.Classify(font),
+                IsMonospace: FontClassificationRules.IsMonospace(font)))
             .OrderBy(font => font.Font.Family, StringComparer.OrdinalIgnoreCase)
             .ThenBy(font => font.Font.Subfamily, StringComparer.OrdinalIgnoreCase)
             .ThenBy(font => font.Font.Weight)
@@ -82,49 +82,6 @@ public sealed class FontIndex
         }
 
         return filtered.Select(font => font.Font).ToArray();
-    }
-
-    private static FontClassification Classify(FontInfo font)
-    {
-        var combinedName = $"{font.Family} {font.Subfamily}";
-
-        if (ContainsAny(combinedName, "mono", "code", "console", "fixed"))
-        {
-            return FontClassification.Monospace;
-        }
-
-        if (ContainsAny(combinedName, "display", "script", "decorative", "blackletter"))
-        {
-            return FontClassification.Display;
-        }
-
-        if (ContainsAny(combinedName, "sans", "grotesk", "grotesque"))
-        {
-            return FontClassification.SansSerif;
-        }
-
-        if (ContainsAny(combinedName, "serif", "roman", "times", "garamond", "georgia", "baskerville", "palatino"))
-        {
-            return FontClassification.Serif;
-        }
-
-        return FontClassification.Unknown;
-    }
-
-    private static bool IsMonospace(FontInfo font)
-        => Classify(font) == FontClassification.Monospace;
-
-    private static bool ContainsAny(string value, params string[] terms)
-    {
-        foreach (var term in terms)
-        {
-            if (value.Contains(term, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private sealed record IndexedFont(FontInfo Font, FontClassification Classification, bool IsMonospace);
