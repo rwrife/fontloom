@@ -1,6 +1,6 @@
 namespace Fontloom.Core.Fonts;
 
-internal static class FontInfoDeduplicator
+public static class FontInfoDeduplicator
 {
     public static IReadOnlyList<FontInfo> Deduplicate(IEnumerable<FontInfo> fonts)
     {
