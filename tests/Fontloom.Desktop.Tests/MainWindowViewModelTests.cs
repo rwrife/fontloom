@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fontloom.Core.Ai;
 using Fontloom.Core.Fonts;
 using Fontloom.Core.Organization;
 using Fontloom.Core.Specimens;
@@ -176,6 +177,50 @@ public class MainWindowViewModelTests
         exporter.PdfExports[0].options.CollectionLabel.Should().Be("Brand kit");
     }
 
+    [Fact]
+    public void LocalAi_DefaultsToDisabledState()
+    {
+        var service = new StubCatalogService(CreateIndex(
+            CreateFont("Inter Sans", "Regular", 400, false, "/fonts/inter-regular.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E)))));
+
+        var viewModel = new MainWindowViewModel(service);
+
+        viewModel.LocalAiEnabled.Should().BeFalse();
+        viewModel.LocalAiStatus.Should().ContainEquivalentOf("disabled");
+        viewModel.PairingSuggestions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void LocalAiEnabled_UsesProvidedAiServiceSuggestions()
+    {
+        var baseFont = CreateFont("Inter Sans", "Regular", 400, false, "/fonts/inter-regular.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E)));
+        var pairingFont = CreateFont("Playfair Serif", "Regular", 600, false, "/fonts/playfair.ttf", CreateCoverage(new CodePointRange(0x20, 0x7E)));
+
+        var service = new StubCatalogService(CreateIndex(baseFont, pairingFont));
+        var aiResult = new FontAiSuggestionResult(
+            LocalAiEnabled: true,
+            EndpointReachable: true,
+            UsedFallback: false,
+            Pairings: new[]
+            {
+                new FontPairingSuggestion(pairingFont, "High-contrast serif pairing for headings.")
+            },
+            Description: "Neutral geometric sans with broad text support.");
+
+        var aiService = new StubFontAiService(aiResult);
+        var viewModel = new MainWindowViewModel(service, fontAiService: aiService);
+
+        viewModel.LocalAiEnabled = true;
+
+        aiService.CallCount.Should().BeGreaterThan(0);
+        aiService.LastEndpoint.Should().Be(LocalFontAiOptions.DefaultEndpoint);
+        viewModel.IsLocalAiEndpointReachable.Should().BeTrue();
+        viewModel.PairingModeLabel.Should().Be("Local AI suggestions");
+        viewModel.PairingSuggestions.Should().ContainSingle();
+        viewModel.PairingSuggestions.Single().Should().Contain("Playfair Serif");
+        viewModel.SelectedFontAutoDescription.Should().Contain("Neutral geometric sans");
+    }
+
     private static FontIndex CreateIndex(params FontInfo[] fonts)
         => FontIndex.Create(fonts);
 
@@ -251,5 +296,34 @@ public class MainWindowViewModelTests
 
         public void ExportCollectionPdf(IReadOnlyList<FontInfo> fonts, string outputPath, SpecimenExportOptions options)
             => PdfExports.Add((fonts, outputPath, options));
+    }
+
+    private sealed class StubFontAiService : IFontAiService
+    {
+        private readonly FontAiSuggestionResult _result;
+
+        public StubFontAiService(FontAiSuggestionResult result)
+        {
+            _result = result;
+        }
+
+        public int CallCount { get; private set; }
+
+        public string? LastEndpoint { get; private set; }
+
+        public Task<bool> ProbeAsync(string endpoint, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<FontAiSuggestionResult> SuggestPairingsAsync(
+            FontInfo baseFont,
+            IReadOnlyList<FontInfo> libraryFonts,
+            bool enableLocalAi,
+            string endpoint,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastEndpoint = endpoint;
+            return Task.FromResult(_result);
+        }
     }
 }

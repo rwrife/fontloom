@@ -52,8 +52,9 @@ fontloom can talk to a local, OpenAI‑compatible endpoint (Ollama or llama.cpp 
 
 - **Tiny‑model friendly:** Llama 3.2 3B / Qwen2.5 3B / Phi‑3‑mini class for text pairing suggestions; MiniCPM‑V class if visual specimen analysis is enabled.
 - **Local only:** requests go to `http://localhost:11434` (or your configured endpoint). Nothing leaves your machine.
-- **Graceful fallback:** a reachability probe runs first; if no model is available, AI features are hidden and rule‑based pairing heuristics (classification + contrast rules) are used instead.
-- **Off by default:** enable it explicitly in **Settings → Local AI**.
+- **Metadata only:** the AI prompt includes only font metadata (family/subfamily, inferred classification, style flags, weight/width) — font binaries are never uploaded.
+- **Graceful fallback:** a reachability probe runs first; if no model is available, the app automatically falls back to rule‑based pairing heuristics (classification + contrast rules).
+- **Off by default:** enable it explicitly in **Settings → Local AI** and adjust the endpoint there when needed.
 
 ## Current status / milestones
 

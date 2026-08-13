@@ -1,3 +1,4 @@
+using Fontloom.Core.Ai;
 using Fontloom.Core.Fonts;
 using Fontloom.Core.Organization;
 using Fontloom.Core.Specimens;
@@ -22,6 +23,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private const int ComparisonTrayMaximum = 6;
 
     private readonly IFontCatalogService _fontCatalogService;
+    private readonly IFontAiService _fontAiService;
     private readonly IFontOrganizationStore _organizationStore;
     private readonly ISpecimenExporter _specimenExporter;
 
@@ -70,15 +72,25 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _exportDirectoryInput = BuildDefaultExportDirectory();
     private string _exportFileStemInput = "specimen";
 
+    private bool _localAiEnabled;
+    private string _localAiEndpoint = LocalFontAiOptions.DefaultEndpoint;
+    private bool _isLocalAiEndpointReachable;
+    private string _localAiStatus = "Local AI is disabled.";
+    private string _pairingModeLabel = "Enable Local AI to get pairing suggestions.";
+    private IReadOnlyList<string> _pairingSuggestions = Array.Empty<string>();
+    private string _selectedFontAutoDescription = "—";
+
     public MainWindowViewModel(
         IFontCatalogService fontCatalogService,
         IFontOrganizationStore? organizationStore = null,
         ISpecimenExporter? specimenExporter = null,
+        IFontAiService? fontAiService = null,
         bool autoLoad = true)
     {
         _fontCatalogService = fontCatalogService ?? throw new ArgumentNullException(nameof(fontCatalogService));
         _organizationStore = organizationStore ?? new InMemoryFontOrganizationStore();
         _specimenExporter = specimenExporter ?? new SkiaSpecimenExporter();
+        _fontAiService = fontAiService ?? new LocalFontAiService();
 
         ReloadOrganizationState();
 
@@ -247,6 +259,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             {
                 RaiseSelectionChanged();
                 RefreshSelectedFontMetadata();
+                RefreshPairingSuggestions();
             }
         }
     }
@@ -374,6 +387,67 @@ public sealed class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _exportFileStemInput, value);
     }
 
+    public bool LocalAiEnabled
+    {
+        get => _localAiEnabled;
+        set
+        {
+            if (SetProperty(ref _localAiEnabled, value))
+            {
+                RefreshPairingSuggestions();
+            }
+        }
+    }
+
+    public string LocalAiEndpoint
+    {
+        get => _localAiEndpoint;
+        set
+        {
+            var normalized = string.IsNullOrWhiteSpace(value)
+                ? LocalFontAiOptions.DefaultEndpoint
+                : value.Trim();
+
+            if (SetProperty(ref _localAiEndpoint, normalized))
+            {
+                if (LocalAiEnabled)
+                {
+                    RefreshPairingSuggestions();
+                }
+            }
+        }
+    }
+
+    public bool IsLocalAiEndpointReachable
+    {
+        get => _isLocalAiEndpointReachable;
+        private set => SetProperty(ref _isLocalAiEndpointReachable, value);
+    }
+
+    public string LocalAiStatus
+    {
+        get => _localAiStatus;
+        private set => SetProperty(ref _localAiStatus, value);
+    }
+
+    public string PairingModeLabel
+    {
+        get => _pairingModeLabel;
+        private set => SetProperty(ref _pairingModeLabel, value);
+    }
+
+    public IReadOnlyList<string> PairingSuggestions
+    {
+        get => _pairingSuggestions;
+        private set => SetProperty(ref _pairingSuggestions, value);
+    }
+
+    public string SelectedFontAutoDescription
+    {
+        get => _selectedFontAutoDescription;
+        private set => SetProperty(ref _selectedFontAutoDescription, value);
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -462,6 +536,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             OnPropertyChanged(nameof(TotalFontCountLabel));
             ApplyFilters();
+            RefreshPairingSuggestions();
 
             StatusMessage = $"Loaded {_totalFontCount} fonts.";
         }
@@ -473,6 +548,11 @@ public sealed class MainWindowViewModel : ViewModelBase
             FilteredFonts = Array.Empty<FontTileViewModel>();
             RefreshComparisonTrayState();
             SelectedFont = null;
+            PairingSuggestions = Array.Empty<string>();
+            SelectedFontAutoDescription = "—";
+            PairingModeLabel = "Enable Local AI to get pairing suggestions.";
+            LocalAiStatus = "Local AI is disabled.";
+            IsLocalAiEndpointReachable = false;
             StatusMessage = $"Failed to load fonts: {ex.Message}";
         }
     }
@@ -700,6 +780,80 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
+    private void RefreshPairingSuggestions()
+    {
+        PairingSuggestions = Array.Empty<string>();
+        SelectedFontAutoDescription = "—";
+        IsLocalAiEndpointReachable = false;
+
+        if (!LocalAiEnabled)
+        {
+            PairingModeLabel = "Enable Local AI to get pairing suggestions.";
+            LocalAiStatus = "Local AI is disabled.";
+            return;
+        }
+
+        if (SelectedFont is null)
+        {
+            PairingModeLabel = "Select a font to get pairing suggestions.";
+            LocalAiStatus = "Local AI is enabled.";
+            return;
+        }
+
+        var libraryFonts = _fontIndex.Query();
+
+        try
+        {
+            var result = _fontAiService
+                .SuggestPairingsAsync(
+                    SelectedFont.Font,
+                    libraryFonts,
+                    enableLocalAi: true,
+                    endpoint: LocalAiEndpoint)
+                .GetAwaiter()
+                .GetResult();
+
+            IsLocalAiEndpointReachable = result.EndpointReachable;
+            PairingModeLabel = result.UsedFallback
+                ? "Heuristic fallback"
+                : "Local AI suggestions";
+            LocalAiStatus = result.EndpointReachable
+                ? $"Connected to {LocalAiEndpoint}."
+                : $"Could not reach {LocalAiEndpoint}; using local heuristics.";
+
+            SelectedFontAutoDescription = string.IsNullOrWhiteSpace(result.Description)
+                ? "—"
+                : result.Description.Trim();
+
+            PairingSuggestions = result.Pairings
+                .Take(3)
+                .Select((pairing, index) =>
+                    $"{index + 1}. {pairing.Font.Family} {pairing.Font.Subfamily} — {pairing.Rationale}")
+                .ToArray();
+
+            if (PairingSuggestions.Count == 0)
+            {
+                PairingModeLabel = "No pairing candidates found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            var fallback = HeuristicFontPairingEngine.BuildFallback(
+                SelectedFont.Font,
+                libraryFonts,
+                localAiEnabled: true,
+                endpointReachable: false);
+
+            PairingModeLabel = "Heuristic fallback";
+            LocalAiStatus = $"Local AI request failed ({ex.Message}). Showing heuristic suggestions.";
+            SelectedFontAutoDescription = fallback.Description;
+            PairingSuggestions = fallback.Pairings
+                .Select((pairing, index) =>
+                    $"{index + 1}. {pairing.Font.Family} {pairing.Font.Subfamily} — {pairing.Rationale}")
+                .ToArray();
+        }
+    }
+
     private void ApplyFilters()
     {
         var classifications = GetEnabledClassifications();
@@ -708,6 +862,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             FilteredFonts = Array.Empty<FontTileViewModel>();
             SelectedFont = null;
+            RefreshPairingSuggestions();
             StatusMessage = "No classifications enabled.";
             return;
         }
@@ -739,6 +894,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (filteredFonts.Length == 0)
         {
             SelectedFont = null;
+            RefreshPairingSuggestions();
             StatusMessage = $"0 of {_totalFontCount} fonts match filters.";
             return;
         }
@@ -749,6 +905,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             SelectedFont = filteredFonts[0];
         }
 
+        RefreshPairingSuggestions();
         StatusMessage = $"{filteredFonts.Length} of {_totalFontCount} fonts match filters.";
     }
 
