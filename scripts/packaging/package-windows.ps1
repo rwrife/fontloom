@@ -56,7 +56,7 @@ $manifest = @"
   <Properties>
     <DisplayName>fontloom</DisplayName>
     <PublisherDisplayName>rwrife</PublisherDisplayName>
-    <Logo>Assets\\Square150x150Logo.png</Logo>
+    <Logo>Assets/Square150x150Logo.png</Logo>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
@@ -70,8 +70,8 @@ $manifest = @"
         DisplayName="fontloom"
         Description="Cross-platform desktop font manager"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\\Square150x150Logo.png"
-        Square44x44Logo="Assets\\Square44x44Logo.png" />
+        Square150x150Logo="Assets/Square150x150Logo.png"
+        Square44x44Logo="Assets/Square44x44Logo.png" />
     </Application>
   </Applications>
   <Capabilities>
