@@ -1,5 +1,7 @@
 # fontloom
 
+[![CI & Packaging](https://github.com/rwrife/fontloom/actions/workflows/ci-packaging.yml/badge.svg)](https://github.com/rwrife/fontloom/actions/workflows/ci-packaging.yml)
+
 Cross-platform desktop **font manager & previewer** for **Windows 10/11 and macOS** — browse every font on your system (and loose font files on disk), preview them with your own sample text, compare typefaces side by side, tag/organize into collections, and get optional local-AI font‑pairing suggestions. Offline and privacy‑first: everything runs locally, no account and no cloud required.
 
 ## Overview

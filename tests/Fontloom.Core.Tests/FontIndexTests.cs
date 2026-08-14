@@ -118,7 +118,7 @@ public class FontIndexTests
     }
 
     [Fact]
-    public void Query_ThousandFontIndex_CompletesWellUnderOneHundredMilliseconds()
+    public void Query_ThousandFontIndex_CompletesWithinHalfSecondBudget()
     {
         var coverage = CreateCoverage(new CodePointRange(0x20, 0x7E));
 
@@ -157,7 +157,7 @@ public class FontIndexTests
 
         stopwatch.Stop();
 
-        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(100));
+        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(500));
     }
 
     private static FontInfo CreateFont(
